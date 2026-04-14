@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-HASH_BITS = 10
+HASH_BITS = 8  # must match Chord's m value
 
 def dfsHash(keyString):
     return int(hashlib.sha1(keyString.encode()).hexdigest(), 16) % (2 ** HASH_BITS)
