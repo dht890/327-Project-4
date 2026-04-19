@@ -32,8 +32,9 @@ def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
         chordNode.create()
         print(f"Node {nid} created new ring")
     else:
+        start = time.perf_counter()
         chordNode.join({"node_id": joinNodeId, "host": host, "port": port})
-        print(f"Node {nid} joined ring")
+        print(f"Node {nid} joined ring (Time: {time.perf_counter() - start:.4f}s)")
 
     # Run daemon in background
     threading.Thread(target=daemon.requestLoop, daemon=True).start()
@@ -41,30 +42,26 @@ def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
     return nid
 
 def main():
+    print("=== Part A ===")
+
     # Connect to Pyro name server (must be running already)
     ns = pyro.locate_ns()
-
     host = "127.0.0.1"
     basePort = 9000
 
-    # --- Start 5 peers ---
-    print("=== Starting 5 Chord peers ===")
-    nodeIds = []
 
-    # First node bootstraps the ring
+    # --- Start ring ---
+    nodeIds = []
     nid = startPeer(host, basePort, ns, bootstrap=True)
     nodeIds.append(nid)
     time.sleep(1)
 
     # Remaining 4 join via the first node
     for i in range(1, 5):
-        start = time.perf_counter()
         nid = startPeer(host, basePort + i, ns, joinNodeId=nodeIds[0])
-        print("Node joined in", time.perf_counter() - start, "seconds")
         nodeIds.append(nid)
-        time.sleep(1)
 
-    print(f"\nNode IDs: {nodeIds}")
+    print(f"\nRing nodes: {nodeIds}")
     print("Waiting for ring to stabilize...")
     time.sleep(10)  # wait for stabilization and maintenance to run
 
@@ -93,11 +90,10 @@ def main():
 
     # --- Test append ---
     print("\n=== Testing append (3 pages) ===")
+    start = time.perf_counter()
     for i in range(3):
-        start = time.perf_counter()
         dfs.append("test.txt", f"page{i}.txt")
-        end = time.perf_counter()
-        print(f"append page{i}.txt -> OK (Time: {end - start:.4f}s)")
+    print(f"append test.txt -> OK (Time: {time.perf_counter() - start:.4f}s)")
 
     # --- Test stat ---
     print("\n=== Testing stat ===")
@@ -108,7 +104,7 @@ def main():
     print("\n=== Testing read ===")
     start = time.perf_counter()
     content = dfs.read("test.txt")
-    print(f"read ->\n{content} (Time: {end - start:.4f}s)")
+    print(f"read ->\n{content}\n(Time: {time.perf_counter() - start:.4f}s)")
 
     # --- Test head ---
     print("\n=== Testing head(2) ===")
@@ -124,7 +120,10 @@ def main():
     print(f"delete test.txt -> OK")
     print(f"ls after delete -> {dfs.ls()}")
 
-    print("\n=== All Part A tests passed ===")
+    print("\n=== SUCCESS: All tests passed ===")
 
 if __name__ == "__main__":
+    start = time.perf_counter()
     main()
+    end = time.perf_counter()
+    print(f"main -> OK (Time: {end - start:.4f}s)")
