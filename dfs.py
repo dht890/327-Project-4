@@ -1,12 +1,70 @@
 #dfs.py
 import hashlib
+import heapq
 import json
+import os
+import tempfile
 import time
 
 HASH_BITS = 4  # must match Chord's m value
 
 def dfsHash(keyString):
     return int(hashlib.sha1(keyString.encode()).hexdigest(), 16) % (2 ** HASH_BITS)
+
+
+def sortable_key(s: str):
+    """
+    Compare keys for global ordering: integers, then floats, else lexicographic string order.
+    """
+    t = (s or "").strip()
+    if not t:
+        return (3, "")
+    try:
+        return (0, int(t))
+    except ValueError:
+        pass
+    try:
+        return (1, float(t))
+    except ValueError:
+        return (2, t)
+
+
+def parse_kv_line(line: str):
+    """Parse a single `key,value` record (first comma). Returns None if empty or invalid."""
+    s = line.strip()
+    if not s:
+        return None
+    sep = s.find(",")
+    if sep < 0:
+        return None
+    return s[:sep].strip(), s[sep + 1 :].strip()
+
+
+def decode_page_blob(page_raw: str) -> str:
+    """Decode a stored page value (JSON `{"content": ...}` or legacy plain string)."""
+    try:
+        page = json.loads(page_raw)
+    except Exception:
+        return str(page_raw)
+    if isinstance(page, dict) and "content" in page:
+        return page["content"]
+    return str(page_raw)
+
+
+def validate_sorted_kv_text(text: str) -> None:
+    """
+    Ensure non-empty parsed records appear in non-decreasing sortable_key order.
+    Raises ValueError if validation fails.
+    """
+    prev = None
+    for raw in text.splitlines():
+        p = parse_kv_line(raw)
+        if p is None:
+            continue
+        sk = sortable_key(p[0])
+        if prev is not None and sk < prev:
+            raise ValueError(f"records out of order: {prev!r} then {sk!r}")
+        prev = sk
 
 #Oanh Tran Part A
 #-------------
@@ -113,22 +171,25 @@ class DFSClient:
 
         for pageDesc in meta.pages:
             pageRaw = self.chordNode.get(pageDesc["key"])
-
-            try:
-                page = json.loads(pageRaw)
-            except Exception:
-                # fallback: old format (plain string)
-                allContent.append(str(pageRaw))
-                continue
-
-            # safe extraction
-            if isinstance(page, dict) and "content" in page:
-                allContent.append(page["content"])
-            else:
-                # fallback for corrupted or old schema
-                allContent.append(str(pageRaw))
+            allContent.append(decode_page_blob(pageRaw))
 
         return "".join(allContent)
+
+    def iter_file_pages(self, fileName):
+        """
+        Scan the distributed file page-by-page in metadata order (same order as read()).
+        Yields (page_no, content) for each stored page.
+        """
+        raw = self.chordNode.get(self.metaKey(fileName))
+        if raw is None:
+            raise FileNotFoundError(f"No such DFS file: {fileName}")
+
+        meta = FileMetaData.fromDict(json.loads(raw))
+
+        for pageDesc in meta.pages:
+            page_no = pageDesc["pageNo"]
+            pageRaw = self.chordNode.get(pageDesc["key"])
+            yield page_no, decode_page_blob(pageRaw)
 
     #returns the first n lines of a file
     def head(self, fileName, n):
@@ -181,3 +242,57 @@ class DFSClient:
             "version": meta.version,
             "metadataKey": self.metaKey(fileName),
         }
+
+    # DFS operations - Part B (distributed sort)
+
+    @staticmethod
+    def _assemble_sorted_output(chunks):
+        """Merge locally sorted shards into one globally sorted text body (output assembly)."""
+        if not chunks:
+            return "", []
+        streams = [
+            ((sortable_key(k), k, v) for k, v in chunk) for chunk in chunks
+        ]
+        merged = list(heapq.merge(*streams))
+        lines_out = [f"{k},{v}" for _, k, v in merged]
+        body = "\n".join(lines_out)
+        if lines_out:
+            body += "\n"
+        return body, lines_out
+
+    def sort_file(self, filename, output_filename):
+        """
+        Distributed sort pipeline:
+          1) Page scanning — walk each DFS page in order.
+          2) Routing — each key,value record goes to the Chord successor of dfsHash(key).
+          3) Local sorted aggregation — each peer sorts its buffer (StorageNode).
+          4) Output assembly — k-way merge of shards; validate global order; store in DFS.
+        """
+        st = self.chordNode
+        st.sort_reset_all()
+
+        for _page_no, page_content in self.iter_file_pages(filename):
+            for raw in page_content.splitlines():
+                parsed = parse_kv_line(raw)
+                if parsed is None:
+                    continue
+                k, v = parsed
+                st.route_sort_record(k, v)
+
+        chunks = st.sort_collect_sorted_shards()
+        body, _lines_out = self._assemble_sorted_output(chunks)
+        validate_sorted_kv_text(body)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".txt", encoding="utf-8", newline="\n"
+        ) as tf:
+            tf.write(body)
+            path = tf.name
+        try:
+            self.touch(output_filename)
+            self.append(output_filename, path)
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass

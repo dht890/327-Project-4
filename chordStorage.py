@@ -3,6 +3,7 @@ import time
 import Pyro5.api as pyro
 import json
 from Chord import proxy_for
+from dfs import dfsHash
 
 def storageProxyFor(nodeId):
     """Get a Pyro proxy to the StorageNode registered for a given Chord node."""
@@ -52,7 +53,42 @@ class ChordStorage:
         responsible = self._findResponsible(key)
         p = self._getProxy(responsible["node_id"])
         return p.remoteDelete(key)
-      
+
+    def list_ring_nodes(self):
+        """Walk the Chord ring from the entry node and return every node id once."""
+        nodes = []
+        start = self.nodeId
+        cur = start
+        for _ in range(4096):
+            nodes.append(cur)
+            with proxy_for(cur) as p:
+                succ = p.get_successor()
+            nxt = succ["node_id"]
+            if nxt == start:
+                break
+            cur = nxt
+        return nodes
+
+    def sort_reset_all(self):
+        for nid in self.list_ring_nodes():
+            p = self._getProxy(nid)
+            p.remoteSortClear()
+
+    def route_sort_record(self, sort_key: str, value: str):
+        route_key = dfsHash(sort_key)
+        responsible = self._findResponsible(route_key)
+        p = self._getProxy(responsible["node_id"])
+        return p.remoteSortAppend(sort_key, value)
+
+    def sort_collect_sorted_shards(self):
+        """Return non-empty locally sorted shards from every ring node (clears each buffer)."""
+        chunks = []
+        for nid in self.list_ring_nodes():
+            batch = self._getProxy(nid).remoteSortGetSorted()
+            if batch:
+                chunks.append(batch)
+        return chunks
+
     def append(self, metaKey, pageKey, content):
         responsible = self._findResponsible(metaKey)
         p = self._getProxy(responsible["node_id"])
