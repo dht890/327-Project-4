@@ -2,8 +2,6 @@
 
 ```pip install Pyro5```
 
-1. ```python -m Pyro5.nameserver```
+1. ```python -m Pyro5.nameserver -n 127.0.0.1```
 
-2. ```python chord.py node --port 5000 --bootstrap```
-
-3. ```python test_part_a.py```
+2. ```python test_part_a.py```
