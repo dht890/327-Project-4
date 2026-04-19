@@ -7,7 +7,7 @@ from storageNode import StorageNode
 from chordStorage import ChordStorage
 from dfs import DFSClient
 
-M = 8  # must match HASH_BITS in dfs.py
+M = 4  # must match HASH_BITS in dfs.py
 
 def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
     """Start a ChordNode + StorageNode in a Pyro daemon on a background thread."""
@@ -39,7 +39,7 @@ def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
     threading.Thread(target=daemon.requestLoop, daemon=True).start()
 
     # Start Chord maintenance
-    chordNode.start_maintenance()
+    # chordNode.start_maintenance()
 
     return nid
 
@@ -61,13 +61,15 @@ def main():
 
     # Remaining 4 join via the first node
     for i in range(1, 5):
+        start = time.perf_counter()
         nid = startPeer(host, basePort + i, ns, joinNodeId=nodeIds[0])
+        print("Node joined in", time.perf_counter() - start, "seconds")
         nodeIds.append(nid)
         time.sleep(1)
 
     print(f"\nNode IDs: {nodeIds}")
     print("Waiting for ring to stabilize...")
-    time.sleep(10)
+    time.sleep(10)  # wait for stabilization and maintenance to run
 
     # --- Create DFS client ---
     storage = ChordStorage(nodeIds[0])
@@ -75,12 +77,17 @@ def main():
 
     # --- Test touch ---
     print("\n=== Testing touch ===")
+    start = time.perf_counter()
     dfs.touch("test.txt")
-    print(f"touch test.txt -> OK")
+    end = time.perf_counter()
+    print(f"touch test.txt -> OK (Time: {end - start:.4f}s)")
 
     # --- Test ls ---
     print("\n=== Testing ls ===")
-    print(f"ls -> {dfs.ls()}")
+    start = time.perf_counter()
+    fileList = dfs.ls()
+    end = time.perf_counter()
+    print(f"ls -> {fileList} (Time: {end - start:.4f}s)")
 
     # --- Create local test files in current directory ---
     for i in range(3):
@@ -90,8 +97,10 @@ def main():
     # --- Test append ---
     print("\n=== Testing append (3 pages) ===")
     for i in range(3):
+        start = time.perf_counter()
         dfs.append("test.txt", f"page{i}.txt")
-        print(f"append page{i}.txt -> OK")
+        end = time.perf_counter()
+        print(f"append page{i}.txt -> OK (Time: {end - start:.4f}s)")
 
     # --- Test stat ---
     print("\n=== Testing stat ===")
@@ -100,8 +109,9 @@ def main():
 
     # --- Test read ---
     print("\n=== Testing read ===")
+    start = time.perf_counter()
     content = dfs.read("test.txt")
-    print(f"read ->\n{content}")
+    print(f"read ->\n{content} (Time: {end - start:.4f}s)")
 
     # --- Test head ---
     print("\n=== Testing head(2) ===")

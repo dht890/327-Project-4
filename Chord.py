@@ -132,30 +132,85 @@ class ChordNode:
 
     # ---------- Chord RPCs ----------
 
-    def find_successor(self, key: int) -> Dict[str, Any]:
+    def find_successor(self, key: int, hops: int = 0):
         """
-        Return successor(key). Standard Chord lookup.
+        Logarithmic Chord lookup (fixed).
         """
+
+        # 🚨 prevent runaway recursion
+        if hops > 8:
+            with self._lock:
+                s = self.successor
+            return {
+                "node_id": s.node_id,
+                "host": s.host,
+                "port": s.port
+            }
+
         with self._lock:
             n = self.info
             s = self.successor
 
-        # If key in (n, successor] then successor is answer
-        if in_interval(key, n.node_id, s.node_id, self.ring_size, left_open=True, right_closed=True):
-            return {"node_id": s.node_id, "host": s.host, "port": s.port}
+        # safety fallback
+        if s is None:
+            return {
+                "node_id": n.node_id,
+                "host": n.host,
+                "port": n.port
+            }
 
-        # Else forward to closest preceding finger
+        # if key in (n, successor]
+        if in_interval(
+            key,
+            n.node_id,
+            s.node_id,
+            self.ring_size,
+            left_open=True,
+            right_closed=True
+        ):
+            return {
+                "node_id": s.node_id,
+                "host": s.host,
+                "port": s.port
+            }
+
+        # 🔥 REAL FIX: use finger table properly
         cp = self._closest_preceding_finger_local(key)
-        if cp.node_id == n.node_id:
-            # Fallback: avoid infinite loop; ask successor
+
+        # safety fallback
+        if cp is None:
             cp = s
 
         with proxy_for(cp.node_id) as p:
-            return p.find_successor(key)
+            return p.find_successor(key, hops + 1)
 
-    def closest_preceding_finger(self, key: int) -> Dict[str, Any]:
-        cp = self._closest_preceding_finger_local(key)
-        return {"node_id": cp.node_id, "host": cp.host, "port": cp.port}
+    def _closest_preceding_finger_local(self, key: int):
+        """
+        Return closest preceding finger in identifier space.
+        Scans from highest to lowest for logarithmic routing.
+        """
+
+        with self._lock:
+            n_id = self.info.node_id
+            fingers = self.fingers[:]
+
+        # scan backwards for best match
+        for finger in reversed(fingers):
+            if finger is None:
+                continue
+
+            if in_interval(
+                finger.node_id,
+                n_id,
+                key,
+                self.ring_size,
+                left_open=True,
+                right_open=True
+            ):
+                return finger
+
+        # fallback
+        return self.successor
 
     def notify(self, node: Dict[str, Any]) -> None:
         """
@@ -277,17 +332,25 @@ class ChordNode:
 
     def join(self, known: Dict[str, Any]) -> None:
         """
-        Join the ring by asking a known node to find our successor.
+        Join the ring using a known node.
+        Initializes successor + FULL finger table (critical fix).
         """
+
         known_id = known["node_id"]
+
+        # --- find successor of ourselves ---
         with proxy_for(known_id) as pk:
             succ_dict = pk.find_successor(self.info.node_id)
 
         succ = NodeInfo(succ_dict["node_id"], succ_dict["host"], succ_dict["port"])
+
         with self._lock:
-            self.predecessor = None
             self.successor = succ
-            self.fingers[0] = succ
+            self.predecessor = None
+
+            # FIX: initialize ALL fingers, not just finger[0]
+            for i in range(len(self.fingers)):
+                self.fingers[i] = succ
 
 
 # ----------------------------
