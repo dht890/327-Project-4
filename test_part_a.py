@@ -38,9 +38,6 @@ def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
     # Run daemon in background
     threading.Thread(target=daemon.requestLoop, daemon=True).start()
 
-    # Start Chord maintenance
-    # chordNode.start_maintenance()
-
     return nid
 
 def main():

@@ -32,10 +32,11 @@ class ChordStorage:
         return self.proxy_cache[nodeId]
 
     def _findResponsible(self, key):
-        """Use Chord routing to find which node is responsible for this key."""
+        """Route by hash in identifier space; storage uses full string keys to avoid collisions."""
+        route_key = dfsHash(key) if isinstance(key, str) else key
         start = time.perf_counter()
         with proxy_for(self.nodeId) as p:
-            result = p.find_successor(key)
+            result = p.find_successor(route_key)
         print(f"find_successor took {time.perf_counter() - start:.4f}s")
         return result
 

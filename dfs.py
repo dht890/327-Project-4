@@ -96,19 +96,17 @@ class DFSClient:
         self.metaCache = {}  # optional cache for metadata, can be used to speed up repeated access to same file
 
 
-    #metadata placement
+    #metadata placement (string keys avoid collisions in StorageNode; route via dfsHash)
     def metaKey(self, fileName):
-        return dfsHash("metadata:" + fileName)
+        return "metadata:" + fileName
 
-
-    #page placement - key must be routed to proper chord successor
+    # page placement — must be distinct from metaKey and other pages
     def pageKey(self, fileName, pageNo):
-        return dfsHash(fileName + ":" + str(pageNo))
+        return "page:" + fileName + ":" + str(pageNo)
 
-
-    #key in Chord ring that will store list of all files in DFS
+    # key in Chord ring that will store list of all files in DFS
     def dirKey(self):
-        return dfsHash("directory:root")
+        return "directory:root"
 
 
     #DFS operations - Part A
@@ -274,11 +272,15 @@ class DFSClient:
         for _page_no, page_content in self.iter_file_pages(filename):
             for raw in page_content.splitlines():
                 parsed = parse_kv_line(raw)
+                # Reject invalid or JSON-like lines
                 if parsed is None:
                     continue
                 k, v = parsed
-                st.route_sort_record(k, v)
+                if k.startswith("{") or k.startswith("["):
+                    print("SKIPPING METADATA LINE:", raw)
+                    continue
 
+                st.route_sort_record(k, v)
         chunks = st.sort_collect_sorted_shards()
         body, _lines_out = self._assemble_sorted_output(chunks)
         validate_sorted_kv_text(body)
