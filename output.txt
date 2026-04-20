@@ -1,0 +1,181 @@
+=== Part A ===
+Node 5 created new ring
+Node 10 joined ring (Time: 5.4152s)
+Node 9 joined ring (Time: 5.3995s)
+Node 3 joined ring (Time: 5.4147s)
+Node 1 joined ring (Time: 5.4034s)
+
+Ring nodes: [5, 10, 9, 3, 1]
+Waiting for ring to stabilize...
+
+=== Testing touch ===
+find_successor took 5.4221s
+PUT meta: 10.827378999994835
+find_successor took 5.3959s
+GET dir: 5.396985700004734
+find_successor took 5.4228s
+PUT dir: 5.425354399980279
+touch test.txt -> OK (Time: 21.6511s)
+
+=== Testing ls ===
+find_successor took 5.4116s
+ls -> ['test.txt'] (Time: 5.4132s)
+
+=== Testing append (3 pages) ===
+find_successor took 5.4261s
+find_successor took 5.5580s
+find_successor took 5.3905s
+find_successor took 5.4042s
+find_successor took 5.4387s
+find_successor took 5.4093s
+append test.txt -> OK (Time: 32.6622s)
+
+=== Testing stat ===
+find_successor took 5.4160s
+stat -> {'fileName': 'test.txt', 'byteSize': 147, 'numPages': 3, 'pages': [{'pageNo': 0, 'key': 'page:test.txt:0'}, {'pageNo': 1, 'key': 'page:test.txt:1'}, {'pageNo': 2, 'key': 'page:test.txt:2'}], 'version': 3, 'metadataKey': 'metadata:test.txt'}
+
+=== Testing read ===
+find_successor took 5.4326s
+find_successor took 5.4126s
+find_successor took 5.4122s
+find_successor took 5.4317s
+read ->
+This is page 0
+Line 2 of page 0
+Line 3 of page 0
+This is page 1
+Line 2 of page 1
+Line 3 of page 1
+This is page 2
+Line 2 of page 2
+Line 3 of page 2
+
+(Time: 21.6954s)
+
+=== Testing head(2) ===
+find_successor took 5.4046s
+find_successor took 5.4172s
+find_successor took 5.4126s
+find_successor took 5.3970s
+This is page 0
+Line 2 of page 0
+
+=== Testing tail(2) ===
+find_successor took 5.4074s
+find_successor took 5.4112s
+find_successor took 5.4118s
+find_successor took 5.4149s
+Line 2 of page 2
+Line 3 of page 2
+
+=== Testing delete ===
+find_successor took 5.4103s
+find_successor took 5.4015s
+find_successor took 5.3995s
+find_successor took 5.4084s
+find_successor took 5.3877s
+find_successor took 5.4107s
+find_successor took 5.4001s
+delete test.txt -> OK
+find_successor took 5.4127s
+ls after delete -> []
+
+=== SUCCESS: All tests passed ===
+main -> OK (Time: 211.5671s)
+
+
+=== Part B ===
+Node 5 created ring
+Node 10 joined ring (Time: 5.4153s)
+Node 9 joined ring (Time: 5.4086s)
+Node 3 joined ring (Time: 5.4047s)
+Node 1 joined ring (Time: 5.3997s)
+
+Ring nodes: [5, 10, 9, 3, 1]
+Waiting for stabilization...
+
+=== Creating input file ===
+find_successor took 5.4244s
+PUT meta: 10.843226299999515
+find_successor took 5.3971s
+GET dir: 5.39797729998827
+find_successor took 5.4065s
+PUT dir: 5.408254100009799
+touch sort_input.txt -> OK (Time: 21.6499s)
+
+=== Appending pages ===
+find_successor took 5.3949s
+find_successor took 5.4191s
+find_successor took 5.4046s
+find_successor took 5.4112s
+find_successor took 5.4015s
+find_successor took 5.4071s
+append sort_input.txt -> OK (Time: 32.4653s)
+
+=== Verifying input ===
+find_successor took 5.4038s
+find_successor took 5.4058s
+find_successor took 5.4092s
+find_successor took 5.4052s
+find_successor took 5.3963s
+find_successor took 5.4079s
+find_successor took 5.4140s
+find_successor took 5.3976s
+read sort_input.txt -> OK (Time: 43.2509s)
+
+=== Running distributed sort ===
+find_successor took 5.3909s
+find_successor took 5.4149s
+find_successor took 5.4248s
+find_successor took 5.4175s
+find_successor took 5.3912s
+find_successor took 5.3990s
+find_successor took 5.3945s
+find_successor took 5.4021s
+find_successor took 5.3989s
+find_successor took 5.4034s
+find_successor took 5.4084s
+PUT meta: 5.409868200018536
+find_successor took 5.3981s
+GET dir: 5.399376900022617
+find_successor took 5.4058s
+PUT dir: 5.4070634999952745
+find_successor took 5.4048s
+find_successor took 5.3995s
+sort_file sort_input.txt -> OK (Time: 91.8978s)
+
+=== Reading sorted output ===
+find_successor took 5.4187s
+find_successor took 5.4115s
+read sort_output.txt -> OK (Time: 10.8331s)
+
+=== OUTPUT ===
+2,two
+3,early
+7,seven
+10,mid
+30,late
+50,last
+
+
+=== Validating output ===
+
+SUCCESS: Output is globally sorted and correct
+
+=== Cleaning up ===
+find_successor took 5.4139s
+find_successor took 5.4271s
+find_successor took 5.4110s
+find_successor took 5.4142s
+find_successor took 5.4118s
+find_successor took 5.4020s
+find_successor took 5.3970s
+deleteFile sort_input.txt -> OK (Time: 37.8864s)
+find_successor took 5.4098s
+find_successor took 5.4097s
+find_successor took 5.3897s
+find_successor took 5.4103s
+find_successor took 5.3985s
+deleteFile sort_output.txt -> OK (Time: 27.0244s)
+Cleaned up DFS test files.
+main -> OK (Time: 307.0953s)
