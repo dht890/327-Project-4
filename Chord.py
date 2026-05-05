@@ -320,6 +320,21 @@ class ChordNode:
             if i == 0:
                 self.successor = succ
 
+    def get_finger_table(self) -> list: # This function will return the finger table as a list of dicts for display / debugging.
+        with self._lock:
+            result = []
+            for i in range(self.m):
+                start = (self.info.node_id + (1 << i)) % self.ring_size
+                f = self.fingers[i]
+                result.append(
+                    {
+                        "i": i,
+                        "start": start,
+                        "node_id": f.node_id if f else None,
+                    }
+                )
+            return result
+
     # ----------------------------
     # Ring operations
     # ----------------------------
