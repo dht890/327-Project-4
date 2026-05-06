@@ -1,5 +1,4 @@
 #ChordStorage.py
-import time
 import Pyro5.api as pyro
 import json
 from Chord import proxy_for
@@ -42,8 +41,6 @@ class ChordStorage:
     def _findResponsible(self, key):
         """Route by hash in identifier space; storage uses full string keys to avoid collisions."""
         route_key = dfsHash(key) if isinstance(key, str) else key
-        start = time.perf_counter() # For measuring latency     
-        print(f"find_successor took {time.perf_counter() - start:.4f}s")
         return self._getChordProxy(self.nodeId).find_successor(route_key)
 
     def put(self, key, value):

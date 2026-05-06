@@ -116,7 +116,10 @@ class DFSClient:
         meta = FileMetaData(fileName)
 
         t0 = time.perf_counter()
-        self.chordNode.put(self.metaKey(fileName), json.dumps(meta.toDict()))
+        if not self.chordNode.put(self.metaKey(fileName), json.dumps(meta.toDict())):
+            raise RuntimeError(
+                f"touch: metadata put failed for {fileName!r} (check Paxos / replication logs)"
+            )
         print("PUT meta:", time.perf_counter() - t0)
 
         t1 = time.perf_counter()
@@ -129,7 +132,8 @@ class DFSClient:
             fileList.append(fileName)
 
         t2 = time.perf_counter()
-        self.chordNode.put(self.dirKey(), json.dumps(fileList))
+        if not self.chordNode.put(self.dirKey(), json.dumps(fileList)):
+            raise RuntimeError(f"touch: directory put failed for {fileName!r}")
         print("PUT dir:", time.perf_counter() - t2)
 
     #adds page to existing file by fetching the current metadata from the chord and reads from local file disk
