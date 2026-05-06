@@ -1,0 +1,199 @@
+============================================================
+Part C - Replication (R = 3, successor-based)
+============================================================
+
+------------------------------------------------------------
+  1. Start 5-node Chord ring
+------------------------------------------------------------
+Node 87  bootstrapped  port=9100
+Node 112  joined        port=9101
+Node 135  joined        port=9102
+Node 195  joined        port=9103
+Node 71  joined        port=9104
+
+Node IDs: [87, 112, 135, 195, 71]
+Waiting for ring to stabilize (8 s)...
+
+Ring topology:
+  Node 87  pred=71  succ=112  fingers=[112, 112, 112, 112, 112, 135, 195, 87]
+  Node 112  pred=87  succ=135  fingers=[135, 135, 135, 135, 135, 195, 195, 87]
+  Node 135  pred=112  succ=195  fingers=[195, 195, 195, 195, 195, 195, 87, 71]
+  Node 195  pred=135  succ=71  fingers=[71, 71, 71, 71, 71, 71, 71, 71]
+  Node 71  pred=195  succ=87  fingers=[87, 87, 87, 87, 87, 112, 135, 71]
+
+------------------------------------------------------------
+  2. DFS operations - touch / append / read
+------------------------------------------------------------
+find_successor took 9.0832s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=10087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=10087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=10087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=10087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=10087 op='put'
+OK   node 112: accept key='metadata:music.json' round=10087 op='put'
+OK   node 135: accept key='metadata:music.json' round=10087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=10087 op='put'
+OK   node 112: commit key='metadata:music.json' round=10087 op='put'
+OK   node 135: commit key='metadata:music.json' round=10087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=10087
+PUT meta: 72.55858770001214
+find_successor took 9.0946s
+GET dir: 13.633449400003883
+find_successor took 9.1250s
+PUT dir: 9.12598959999741
+touch('music.json') -> OK
+
+Appending 3 pages to music.json
+find_successor took 9.0772s
+find_successor took 9.0722s
+find_successor took 9.0869s
+find_successor took 9.0945s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=20087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=20087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=20087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=20087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=20087 op='put'
+OK   node 112: accept key='metadata:music.json' round=20087 op='put'
+OK   node 135: accept key='metadata:music.json' round=20087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=20087 op='put'
+OK   node 112: commit key='metadata:music.json' round=20087 op='put'
+OK   node 135: commit key='metadata:music.json' round=20087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=20087
+append page 0 -> OK
+find_successor took 9.0931s
+find_successor took 9.0808s
+find_successor took 4.5414s
+find_successor took 9.0818s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=30087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=30087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=30087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=30087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=30087 op='put'
+OK   node 112: accept key='metadata:music.json' round=30087 op='put'
+OK   node 135: accept key='metadata:music.json' round=30087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=30087 op='put'
+OK   node 112: commit key='metadata:music.json' round=30087 op='put'
+OK   node 135: commit key='metadata:music.json' round=30087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=30087
+append page 1 -> OK
+find_successor took 9.0665s
+find_successor took 9.0775s
+find_successor took 9.0716s
+find_successor took 9.0654s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=40087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=40087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=40087 op='put'
+OK   node 112: accept key='metadata:music.json' round=40087 op='put'
+OK   node 135: accept key='metadata:music.json' round=40087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=40087 op='put'
+OK   node 112: commit key='metadata:music.json' round=40087 op='put'
+find_successor took 9.0818s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=30087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=30087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=30087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=30087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=30087 op='put'
+OK   node 112: accept key='metadata:music.json' round=30087 op='put'
+OK   node 135: accept key='metadata:music.json' round=30087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=30087 op='put'
+OK   node 112: commit key='metadata:music.json' round=30087 op='put'
+OK   node 135: commit key='metadata:music.json' round=30087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=30087
+append page 1 -> OK
+find_successor took 9.0665s
+find_successor took 9.0775s
+find_successor took 9.0716s
+find_successor took 9.0654s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=40087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=40087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=40087 op='put'
+OK   node 112: accept key='metadata:music.json' round=40087 op='put'
+OK   node 135: accept key='metadata:music.json' round=40087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=40087 op='put'
+OK   node 112: commit key='metadata:music.json' round=40087 op='put'
+OK   node 112: commit key='metadata:music.json' round=30087 op='put'
+OK   node 135: commit key='metadata:music.json' round=30087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=30087
+append page 1 -> OK
+find_successor took 9.0665s
+find_successor took 9.0775s
+find_successor took 9.0716s
+find_successor took 9.0654s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=40087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=40087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=40087 op='put'
+OK   node 112: accept key='metadata:music.json' round=40087 op='put'
+OK   node 135: accept key='metadata:music.json' round=40087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=40087 op='put'
+OK   node 112: commit key='metadata:music.json' round=40087 op='put'
+OK   node 135: commit key='metadata:music.json' round=40087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=40087
+append page 2 -> OK
+find_successor took 9.0654s
+Replication PUT key='metadata:music.json' replicas=[87, 112, 135] leader=87
+
+Leader 87: round=40087 key='metadata:music.json' attempt=1/3
+OK   node 87: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 112: promise key='metadata:music.json' round=40087 prior=-1
+OK   node 135: promise key='metadata:music.json' round=40087 prior=-1
+OK   leader 87: phase 1 promises=3/3
+OK   node 87: accept key='metadata:music.json' round=40087 op='put'
+OK   node 112: accept key='metadata:music.json' round=40087 op='put'
+OK   node 135: accept key='metadata:music.json' round=40087 op='put'
+OK   leader 87: phase 2 accepts=3/3
+OK   node 87: commit key='metadata:music.json' round=40087 op='put'
+OK   node 112: commit key='metadata:music.json' round=40087 op='put'
+OK   node 135: commit key='metadata:music.json' round=40087 op='put'
+OK   leader 87: consensus key='metadata:music.json' round=40087
+append page 2 -> OK
+find_successor took 9.0647s
+find_successor took 9.0866s
+find_successor took 4.5474s
+find_successor took 9.0883s
+  read -> 36 lines
+  first: 'track000,artist_0_0'
+  last:  'track035,artist_2_11'
+
+------------------------------------------------------------
+  3. Verify metadata is on R=3 replica nodes
+------------------------------------------------------------
+find_successor took 9.0729s
+Replicas for 'metadata:music.json': [87, 112, 135]
+  Node 87: version=3 numPages=3 byteSize=726
+  Node 112: version=3 numPages=3 byteSize=726
+  Node 135: version=3 numPages=3 byteSize=726
+Direct read from replica n=112 -> consistent

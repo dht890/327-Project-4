@@ -22,7 +22,15 @@ class ChordStorage:
         """nodeId: the Chord node ID to use as entry point for routing."""
         self.nodeId = nodeId
         self.proxy_cache = {}
-        
+        # Reused Chord Pyro proxies. Using `with proxy_for(...) as p` reconnects/locates PYRONAME
+        # after every lookup, which dominates latency when the name server is slow or distant.
+        self._chord_proxy_cache = {}
+
+    def _getChordProxy(self, node_id: int):
+        if node_id not in self._chord_proxy_cache:
+            self._chord_proxy_cache[node_id] = proxy_for(node_id)
+        return self._chord_proxy_cache[node_id]
+
     def _getProxy(self, nodeId):
         """
         Return cached Pyro proxy instead of creating a new one every time.
@@ -34,11 +42,9 @@ class ChordStorage:
     def _findResponsible(self, key):
         """Route by hash in identifier space; storage uses full string keys to avoid collisions."""
         route_key = dfsHash(key) if isinstance(key, str) else key
-        start = time.perf_counter()
-        with proxy_for(self.nodeId) as p:
-            result = p.find_successor(route_key)
+        start = time.perf_counter() # For measuring latency     
         print(f"find_successor took {time.perf_counter() - start:.4f}s")
-        return result
+        return self._getChordProxy(self.nodeId).find_successor(route_key)
 
     def put(self, key, value):
         responsible = self._findResponsible(key)
@@ -62,8 +68,7 @@ class ChordStorage:
         cur = start
         for _ in range(4096):
             nodes.append(cur)
-            with proxy_for(cur) as p:
-                succ = p.get_successor()
+            succ = self._getChordProxy(cur).get_successor()
             nxt = succ["node_id"]
             if nxt == start:
                 break

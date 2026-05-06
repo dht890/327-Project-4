@@ -12,7 +12,7 @@ from paxos import PaxosAcceptor, paxosProxyFor
 from replication import ReplicatedChordStorage
 from storageNode import StorageNode
 
-M = 4
+M = 8
 BASE_PORT = 9200 # ports 9200-9204, independent of Part C
 
 def start_peer(host, port, ns, bootstrap=False, join_node_id=None):

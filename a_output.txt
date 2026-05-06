@@ -1,0 +1,84 @@
+=== Part A ===
+Node 165 created new ring
+Node 122 joined ring (Time: 4.9558s)
+Node 169 joined ring (Time: 4.5392s)
+Node 243 joined ring (Time: 4.9723s)
+Node 225 joined ring (Time: 4.5472s)
+
+Ring nodes: [165, 122, 169, 243, 225]
+Waiting for ring to stabilize...
+
+=== Testing touch ===
+find_successor took 0.0000s
+PUT meta: 9.507158299995353
+find_successor took 0.0000s
+GET dir: 0.0013006000081077218
+find_successor took 0.0000s
+PUT dir: 0.0009347000013804063
+touch test.txt -> OK (Time: 9.5098s)
+
+=== Testing ls ===
+find_successor took 0.0000s
+ls -> ['test.txt'] (Time: 0.0009s)
+
+=== Testing append (3 pages) ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+append test.txt -> OK (Time: 0.0225s)
+
+=== Testing stat ===
+find_successor took 0.0000s
+stat -> {'fileName': 'test.txt', 'byteSize': 147, 'numPages': 3, 'pages': [{'pageNo': 0, 'key': 'page:test.txt:0'}, {'pageNo': 1, 'key': 'page:test.txt:1'}, {'pageNo': 2, 'key': 'page:test.txt:2'}], 'version': 3, 'metadataKey': 'metadata:test.txt'}
+
+=== Testing read ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+read ->
+This is page 0
+Line 2 of page 0
+Line 3 of page 0
+This is page 1
+Line 2 of page 1
+Line 3 of page 1
+This is page 2
+Line 2 of page 2
+Line 3 of page 2
+
+(Time: 0.0069s)
+
+=== Testing head(2) ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+This is page 0
+Line 2 of page 0
+
+=== Testing tail(2) ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+Line 2 of page 2
+Line 3 of page 2
+
+=== Testing delete ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+delete test.txt -> OK
+find_successor took 0.0000s
+ls after delete -> []
+
+=== SUCCESS: All tests passed ===
+main -> OK (Time: 44.6219s)

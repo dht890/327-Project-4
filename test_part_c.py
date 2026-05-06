@@ -11,7 +11,7 @@ from paxos import PaxosAcceptor
 from replication import ReplicatedChordStorage
 from storageNode import StorageNode
 
-M = 4
+M = 8
 BASE_PORT = 9100 # ports 9100-9104
 
 
@@ -92,6 +92,8 @@ def main():
     dfs = DFSClient(storage)
     dfs.touch("music.json")
     print("touch('music.json') -> OK")
+    print()
+    print("Appending 3 pages to music.json")
     for i in range(3):
         path = os.path.join(tempfile.gettempdir(), f"c_page{i}.txt")
         with open(path, "w") as f:
@@ -100,6 +102,9 @@ def main():
         dfs.append("music.json", path)
         os.unlink(path)
         print(f"append page {i} -> OK")
+
+    print()
+    print("Reading music.json")
     content = dfs.read("music.json")
     lines = [l for l in content.splitlines() if l.strip()]
     print(f"  read -> {len(lines)} lines")
@@ -133,6 +138,8 @@ def main():
         dfs.append("sort_in.txt", path)
         os.unlink(path)
     print("Created sort_in.txt - 100 records, 4 pages")
+    print()
+    print("Sorting sort_in.txt")
     t0 = time.perf_counter()
     dfs.sort_file("sort_in.txt", "sort_out.txt")
     print(f"sort_file -> OK  ({time.perf_counter()-t0:.2f}s)")

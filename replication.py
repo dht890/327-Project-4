@@ -1,7 +1,7 @@
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, wait
 
-from Chord import proxy_for
 from chordStorage import ChordStorage
 from paxos import paxosProxyFor
 
@@ -10,11 +10,20 @@ REPLICATION_FACTOR = 3
 # Sovannmonyrotn Kun 033159813
 
 class PaxosLeader:
-    def __init__(self, leaderId, acceptorIds, maxRetries=3):
+    def __init__(
+        self,
+        leaderId,
+        acceptorIds,
+        maxRetries=3,
+        initial_ballot_seq=0,
+        paxos_proxy_getter=None,
+    ):
         self.leaderId = leaderId
         self.acceptorIds = acceptorIds # Nodes that store this metadata key
         self.maxRetries = maxRetries
-        self.ballotSeq = 0 # Incremented each round to keep ballots strictly increasing
+        # Sequence must persist across PaxosLeader instances so ballots stay above acceptors' promised ballot
+        self.ballotSeq = initial_ballot_seq
+        self._pax_proxy = paxos_proxy_getter
 
     def nextBallot(self): # This function will generate a unique ballot number using leader ID as tiebreaker
         self.ballotSeq += 1
@@ -22,26 +31,38 @@ class PaxosLeader:
 
     def propose(self, metaKey, operation): # This function will run full Paxos round and return True if majority committed
         majority = len(self.acceptorIds) // 2 + 1 # Need more than half to agree
+        n = len(self.acceptorIds)
+
+        def px(node_id):
+            return self._pax_proxy(node_id)
 
         for attempt in range(1, self.maxRetries + 1):
             ballot = self.nextBallot()
             print()
             print(f"Leader {self.leaderId}: round={ballot} key={metaKey!r} attempt={attempt}/{self.maxRetries}")
 
-            # Phase 1 will collect promises from acceptors
+            # Phase 1 — prepare in parallel
             promises = []
-            highestPrior = {"ballot": -1, "operation": None} # Tracks most recently accepted operation seen
+            highestPrior = {"ballot": -1, "operation": None}
 
-            for nodeId in self.acceptorIds:
-                try:
-                    with paxosProxyFor(nodeId) as p:
-                        resp = p.prepare(metaKey, ballot)
-                    if resp["ok"]:
-                        promises.append(resp)
-                        if resp["acc_ballot"] > highestPrior["ballot"]: # Keep track of highest accepted ballot
-                            highestPrior = {"ballot": resp["acc_ballot"], "operation": resp["acc_operation"]}
-                except Exception as exc:
-                    print(f"WARN leader {self.leaderId}: prepare failed on node {nodeId}: {exc}")
+            def call_prepare(node_id):
+                return node_id, px(node_id).prepare(metaKey, ballot)
+
+            with ThreadPoolExecutor(max_workers=max(n, 1)) as pool:
+                futs = [pool.submit(call_prepare, nid) for nid in self.acceptorIds]
+                wait(futs)
+                for fut in futs:
+                    try:
+                        _node_id, resp = fut.result()
+                        if resp["ok"]:
+                            promises.append(resp)
+                            if resp["acc_ballot"] > highestPrior["ballot"]:
+                                highestPrior = {
+                                    "ballot": resp["acc_ballot"],
+                                    "operation": resp["acc_operation"],
+                                }
+                    except Exception as exc:
+                        print(f"WARN leader {self.leaderId}: prepare failed: {exc}")
 
             if len(promises) < majority:
                 print(f"FAIL leader {self.leaderId}: phase 1 promises={len(promises)}/{len(self.acceptorIds)}")
@@ -50,22 +71,26 @@ class PaxosLeader:
 
             print(f"OK   leader {self.leaderId}: phase 1 promises={len(promises)}/{len(self.acceptorIds)}")
 
-            # If an acceptor already had accepted operation, adopt it for Paxos safety
             if highestPrior["operation"] is not None:
                 print(f"INFO leader {self.leaderId}: adopting prior ballot {highestPrior['ballot']}")
                 operation = highestPrior["operation"]
 
-            # Phase 2 will send operation to all acceptors
+            # Phase 2 — accept in parallel
             learned = []
 
-            for nodeId in self.acceptorIds:
-                try:
-                    with paxosProxyFor(nodeId) as p:
-                        resp = p.accept(metaKey, ballot, operation)
-                    if resp["ok"]:
-                        learned.append(nodeId)
-                except Exception as exc:
-                    print(f"WARN leader {self.leaderId}: accept failed on node {nodeId}: {exc}")
+            def call_accept(node_id):
+                return node_id, px(node_id).accept(metaKey, ballot, operation)
+
+            with ThreadPoolExecutor(max_workers=max(n, 1)) as pool:
+                futs = [pool.submit(call_accept, nid) for nid in self.acceptorIds]
+                wait(futs)
+                for fut in futs:
+                    try:
+                        node_id, resp = fut.result()
+                        if resp["ok"]:
+                            learned.append(node_id)
+                    except Exception as exc:
+                        print(f"WARN leader {self.leaderId}: accept failed: {exc}")
 
             if len(learned) < majority:
                 print(f"FAIL leader {self.leaderId}: phase 2 accepts={len(learned)}/{len(self.acceptorIds)}")
@@ -74,13 +99,18 @@ class PaxosLeader:
 
             print(f"OK   leader {self.leaderId}: phase 2 accepts={len(learned)}/{len(self.acceptorIds)}")
 
-            # This will tell all replicas to apply operation, even ones that missed Phase 2
-            for nodeId in self.acceptorIds:
-                try:
-                    with paxosProxyFor(nodeId) as p:
-                        p.commit(metaKey, ballot, operation)
-                except Exception as exc:
-                    print(f"WARN leader {self.leaderId}: commit failed on node {nodeId}: {exc}")
+            def call_commit(node_id):
+                px(node_id).commit(metaKey, ballot, operation)
+                return node_id
+
+            with ThreadPoolExecutor(max_workers=max(n, 1)) as pool:
+                futs = [pool.submit(call_commit, nid) for nid in self.acceptorIds]
+                wait(futs)
+                for fut in futs:
+                    try:
+                        fut.result()
+                    except Exception as exc:
+                        print(f"WARN leader {self.leaderId}: commit failed: {exc}")
 
             print(f"OK   leader {self.leaderId}: consensus key={metaKey!r} round={ballot}")
             return True
@@ -90,6 +120,17 @@ class PaxosLeader:
 
 
 class ReplicatedChordStorage(ChordStorage):
+    def __init__(self, nodeId):
+        super().__init__(nodeId)
+        # Per (leader, metadata key): last Paxos ballot sequence used locally (acceptors retain higher promised ballots)
+        self._paxosBallotSeq = {}
+        self._paxos_proxy_cache = {}
+
+    def _getPaxosProxy(self, node_id: int):
+        if node_id not in self._paxos_proxy_cache:
+            self._paxos_proxy_cache[node_id] = paxosProxyFor(node_id)
+        return self._paxos_proxy_cache[node_id]
+
     def getReplicas(self, key): # This function will return up to REPLICATION_FACTOR node IDs using successor placement
         primary = self._findResponsible(key)
         primaryId = primary["node_id"]
@@ -98,8 +139,7 @@ class ReplicatedChordStorage(ChordStorage):
 
         for _ in range(REPLICATION_FACTOR - 1):
             try:
-                with proxy_for(cur) as p:
-                    succ = p.get_successor()
+                succ = self._getChordProxy(cur).get_successor()
                 nxt = succ["node_id"]
             except Exception:
                 break
@@ -118,7 +158,15 @@ class ReplicatedChordStorage(ChordStorage):
         leaderId = self.leaderFor(replicas)
         print(f"Replication PUT key={metaKey!r} replicas={replicas} leader={leaderId}")
         operation = {"type": "put", "key": metaKey, "value": value}
-        ok = PaxosLeader(leaderId, replicas).propose(metaKey, operation)
+        seq_key = (leaderId, metaKey)
+        leader = PaxosLeader(
+            leaderId,
+            replicas,
+            initial_ballot_seq=self._paxosBallotSeq.get(seq_key, 0),
+            paxos_proxy_getter=self._getPaxosProxy,
+        )
+        ok = leader.propose(metaKey, operation)
+        self._paxosBallotSeq[seq_key] = leader.ballotSeq
         if ok:
             self.syncStorage(metaKey, replicas, value) # Sync to storage so existing read paths still work
         return ok
@@ -128,7 +176,15 @@ class ReplicatedChordStorage(ChordStorage):
         leaderId = self.leaderFor(replicas)
         print(f"Replication DEL key={metaKey!r} replicas={replicas} leader={leaderId}")
         operation = {"type": "delete", "key": metaKey}
-        ok = PaxosLeader(leaderId, replicas).propose(metaKey, operation)
+        seq_key = (leaderId, metaKey)
+        leader = PaxosLeader(
+            leaderId,
+            replicas,
+            initial_ballot_seq=self._paxosBallotSeq.get(seq_key, 0),
+            paxos_proxy_getter=self._getPaxosProxy,
+        )
+        ok = leader.propose(metaKey, operation)
+        self._paxosBallotSeq[seq_key] = leader.ballotSeq
         if ok:
             for nodeId in replicas:
                 try:
@@ -138,11 +194,19 @@ class ReplicatedChordStorage(ChordStorage):
         return ok
 
     def syncStorage(self, metaKey, replicas, value): # This function will push committed metadata value to every replica StorageNode
-        for nodeId in replicas:
-            try:
-                self._getProxy(nodeId).remotePut(metaKey, value)
-            except Exception as e:
-                print(f"WARN replication: storage put failed on node {nodeId}: {e}")
+        n = len(replicas)
+
+        def put_one(node_id):
+            self._getProxy(node_id).remotePut(metaKey, value)
+
+        with ThreadPoolExecutor(max_workers=max(n, 1)) as pool:
+            futs = [pool.submit(put_one, nid) for nid in replicas]
+            wait(futs)
+            for fut in futs:
+                try:
+                    fut.result()
+                except Exception as e:
+                    print(f"WARN replication: storage put failed: {e}")
 
     def put(self, key, value):
         if key.startswith("metadata:"):

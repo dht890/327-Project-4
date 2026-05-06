@@ -6,7 +6,7 @@ import os
 import tempfile
 import time
 
-HASH_BITS = 4  # must match Chord's m value
+HASH_BITS = 8  # must match Chord's m value
 
 def dfsHash(keyString):
     return int(hashlib.sha1(keyString.encode()).hexdigest(), 16) % (2 ** HASH_BITS)

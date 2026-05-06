@@ -15,7 +15,7 @@ from dfs import (
 )
 from storageNode import StorageNode
 
-M = 4  # must match HASH_BITS
+M = 8  # must match HASH_BITS
 
 
 # ----------------------------

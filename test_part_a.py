@@ -7,7 +7,7 @@ from storageNode import StorageNode
 from chordStorage import ChordStorage
 from dfs import DFSClient
 
-M = 4  # must match HASH_BITS in dfs.py
+M = 8  # must match HASH_BITS in dfs.py
 
 def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
     """Start a ChordNode + StorageNode in a Pyro daemon on a background thread."""

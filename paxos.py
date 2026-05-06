@@ -1,11 +1,14 @@
 import threading
 import Pyro5.api as pyro
+from Pyro5.server import expose
 
 # Sovannmonyrotn Kun 033159813
 
 def paxosProxyFor(nodeId):
     return pyro.Proxy(f"PYRONAME:chord.paxos.{nodeId}")
 
+
+@expose
 class PaxosAcceptor:
     def __init__(self, nodeId):
         self.nodeId = nodeId

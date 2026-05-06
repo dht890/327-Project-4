@@ -1,0 +1,11 @@
+{
+ "filename": "music.json",
+ "size_bytes": 40960,
+ "num_pages": 3,
+ "pages": [
+     {"page_no": 0, "guid": "g1", "replicas": ["r1","r2","r3"]},
+     {"page_no": 1, "guid": "g2", "replicas": ["r4","r5","r6"]},
+     {"page_no": 2, "guid": "g3", "replicas": ["r7","r8","r9"]}
+ ],
+ "version": 12
+}

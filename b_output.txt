@@ -1,0 +1,95 @@
+=== Part B ===
+Node 165 created ring
+Node 122 joined ring (Time: 4.9761s)
+Node 169 joined ring (Time: 4.9666s)
+Node 243 joined ring (Time: 4.9662s)
+Node 225 joined ring (Time: 4.9726s)
+
+Ring nodes: [165, 122, 169, 243, 225]
+Waiting for stabilization...
+
+=== Creating input file ===
+find_successor took 0.0000s
+PUT meta: 9.500949799999944
+find_successor took 0.0000s
+GET dir: 0.00041799999598879367
+find_successor took 0.0000s
+PUT dir: 0.00033120000443886966
+touch sort_input.txt -> OK (Time: 9.5019s)
+
+=== Appending pages ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+append sort_input.txt -> OK (Time: 0.0270s)
+
+=== Verifying input ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+read sort_input.txt -> OK (Time: 0.0049s)
+
+=== Running distributed sort ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+PUT meta: 0.0025610000011511147
+find_successor took 0.0000s
+GET dir: 0.0006931999960215762
+find_successor took 0.0000s
+PUT dir: 0.0007858000026317313
+find_successor took 0.0000s
+find_successor took 0.0000s
+sort_file sort_input.txt -> OK (Time: 0.0255s)
+
+=== Reading sorted output ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+read sort_output.txt -> OK (Time: 0.0013s)
+
+=== OUTPUT ===
+2,two
+3,early
+7,seven
+10,mid
+30,late
+50,last
+
+
+=== Validating output ===
+
+SUCCESS: Output is globally sorted and correct
+
+=== Cleaning up ===
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+deleteFile sort_input.txt -> OK (Time: 0.0091s)
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+find_successor took 0.0000s
+deleteFile sort_output.txt -> OK (Time: 0.0059s)
+Cleaned up DFS test files.
+main -> OK (Time: 49.4961s)

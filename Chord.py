@@ -99,6 +99,9 @@ class ChordNode:
 
         self._stop = threading.Event()
 
+        self._proxy_cache = {}
+        self._proxy_lock = threading.RLock()
+
     # ---------- Exposed helpers ----------
 
     def ping(self) -> str:
@@ -130,59 +133,80 @@ class ChordNode:
             else:
                 self.predecessor = NodeInfo(node["node_id"], node["host"], node["port"])
 
+    def _get_proxy(self, node_id: int):
+        with self._proxy_lock:
+            p = self._proxy_cache.get(node_id)
+            if p is None:
+                p = proxy_for(node_id)
+                self._proxy_cache[node_id] = p
+        return p
+
     # ---------- Chord RPCs ----------
 
-    def find_successor(self, key: int, hops: int = 0):
-        """
-        Logarithmic Chord lookup (fixed).
-        """
+    def find_successor(self, key: int, max_hops: int = 16):
+        """Production-grade O(log N) Chord lookup."""
+        hops = 0
 
-        # 🚨 prevent runaway recursion
-        if hops > 8:
+        # Start at current node
+        current = self.info.node_id
+
+        while hops < max_hops:
+            hops += 1
+
+            # local snapshot (single lock only)
+            with self._lock:
+                n_id = self.info.node_id
+                successor = self.successor
+
+            s_id = successor.node_id
+
+            # FAST PATH: if key is in (n, successor]
+            if in_interval(
+                key,
+                n_id,
+                s_id,
+                self.ring_size,
+                left_open=True,
+                right_closed=True
+            ):
+                return {
+                    "node_id": s_id,
+                    "host": successor.host,
+                    "port": successor.port,
+                }
+
+            # closest preceding finger (local computation only)
+            cp = self._closest_preceding_finger_local(key)
+
+            # fallback safety
+            if cp is None:
+                cp = successor
+
+            # if stuck, break early
+            if cp.node_id == current:
+                return {
+                    "node_id": s_id,
+                    "host": successor.host,
+                    "port": successor.port,
+                }
+
+            # move to next hop (NO recursion)
+            try:
+                p = self._get_proxy(cp.node_id)
+                result = p.find_successor(key, max_hops - hops)
+                return result
+            except Exception:
+                # if node fails, fall back locally
+                return {
+                    "node_id": s_id,
+                    "host": successor.host,
+                    "port": successor.port,
+                }
+
+            # fallback return
             with self._lock:
                 s = self.successor
-            return {
-                "node_id": s.node_id,
-                "host": s.host,
-                "port": s.port
-            }
-
-        with self._lock:
-            n = self.info
-            s = self.successor
-
-        # safety fallback
-        if s is None:
-            return {
-                "node_id": n.node_id,
-                "host": n.host,
-                "port": n.port
-            }
-
-        # if key in (n, successor]
-        if in_interval(
-            key,
-            n.node_id,
-            s.node_id,
-            self.ring_size,
-            left_open=True,
-            right_closed=True
-        ):
-            return {
-                "node_id": s.node_id,
-                "host": s.host,
-                "port": s.port
-            }
-
-        # 🔥 REAL FIX: use finger table properly
-        cp = self._closest_preceding_finger_local(key)
-
-        # safety fallback
-        if cp is None:
-            cp = s
-
-        with proxy_for(cp.node_id) as p:
-            return p.find_successor(key, hops + 1)
+            return {"node_id": s.node_id, "host": s.host, "port": s.port}
 
     def _closest_preceding_finger_local(self, key: int):
         """
