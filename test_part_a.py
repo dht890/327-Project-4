@@ -2,7 +2,7 @@ import time
 import threading
 import subprocess
 import Pyro5.api as pyro
-from Chord import ChordNode, NodeInfo, node_id_for
+from Chord import ChordNode, NodeInfo, node_id_for, register_node_uri
 from storageNode import StorageNode
 from chordStorage import ChordStorage
 from dfs import DFSClient
@@ -27,6 +27,7 @@ def startPeer(host, port, ns, bootstrap=False, joinNodeId=None):
 
     ns.register(f"chord.node.{nid}", chordUri)
     ns.register(f"chord.storage.{nid}", storageUri)
+    register_node_uri(nid, chordUri)  # cache direct URI — eliminates ~5s name server lookup per call
 
     if bootstrap:
         chordNode.create()

@@ -59,8 +59,19 @@ def node_id_for(host: str, port: int, m: int) -> int:
     return sha1_int(f"{host}:{port}") % (2 ** m)
 
 
+
+# Global registry: node_id -> direct PYRO URI string (bypasses name server on every call)
+_NODE_URI_REGISTRY: Dict[int, str] = {}
+
+def register_node_uri(node_id: int, uri: str) -> None:
+    """Call this once after daemon.register() to cache the direct URI."""
+    _NODE_URI_REGISTRY[node_id] = str(uri)
+
 def proxy_for(node_id: int) -> pyro.Proxy:
-    # Node is registered as PYRONAME:chord.node.<id>
+    uri = _NODE_URI_REGISTRY.get(node_id)
+    if uri:
+        return pyro.Proxy(uri)
+    # Fallback to name server only if URI not cached yet
     return pyro.Proxy(f"PYRONAME:chord.node.{node_id}")
 
 
@@ -74,13 +85,13 @@ class ChordNode:
     Remote-object Chord node (skeleton).
 
     Methods exposed for remote invocation:
-      - ping
-      - get_node_info
-      - get_successor / set_successor
-      - get_predecessor / set_predecessor
-      - find_successor(key)
-      - closest_preceding_finger(key)
-      - notify(node_info)
+    - ping
+    - get_node_info
+    - get_successor / set_successor
+    - get_predecessor / set_predecessor
+    - find_successor(key)
+    - closest_preceding_finger(key)
+    - notify(node_info)
     """
 
     def __init__(self, info: NodeInfo, m: int) -> None:
@@ -160,7 +171,6 @@ class ChordNode:
 
             s_id = successor.node_id
 
-            # FAST PATH: if key is in (n, successor]
             if in_interval(
                 key,
                 n_id,
@@ -237,9 +247,6 @@ class ChordNode:
         return self.successor
 
     def notify(self, node: Dict[str, Any]) -> None:
-        """
-        n'.notify(n): n' thinks it might be your predecessor.
-        """
         cand = NodeInfo(node["node_id"], node["host"], node["port"])
         with self._lock:
             if self.predecessor is None:
@@ -263,7 +270,7 @@ class ChordNode:
             return self.info
 
     # ----------------------------
-    # Maintenance (stabilize/fix_fingers/check_predecessor)
+    # Maintenance 
     # ----------------------------
 
     @oneway
@@ -297,18 +304,18 @@ class ChordNode:
     def stabilize(self) -> None:
         """
         Standard Chord stabilize:
-          x = successor.predecessor
-          if x in (n, successor) then successor = x
-          successor.notify(n)
+        x = successor.predecessor
+        if x in (n, successor) then successor = x
+        successor.notify(n)
         """
         with self._lock:
             s = self.successor
             n = self.info
 
-        # Ask successor for its predecessor
+        # Ask successor for its predecessor — reuse cached proxy, no name server round-trip
         try:
-            with proxy_for(s.node_id) as ps:
-                x_dict = ps.get_predecessor()
+            ps = self._get_proxy(s.node_id)
+            x_dict = ps.get_predecessor()
         except Exception:
             return
 
@@ -321,16 +328,17 @@ class ChordNode:
                     self.fingers[0] = x
                 s = x
 
-        # Notify successor
+        # Notify successor — reuse cached proxy
         try:
-            with proxy_for(s.node_id) as ps:
-                ps.notify({"node_id": n.node_id, "host": n.host, "port": n.port})
+            ps = self._get_proxy(s.node_id)
+            ps.notify({"node_id": n.node_id, "host": n.host, "port": n.port})
         except Exception:
             return
 
     def fix_fingers(self) -> None:
         """
         Periodically refresh one finger entry.
+        Uses local find_successor (which uses cached proxies) — no extra name server calls.
         """
         with self._lock:
             i = self._next_finger
@@ -339,6 +347,12 @@ class ChordNode:
 
         succ_dict = self.find_successor(start)
         succ = NodeInfo(succ_dict["node_id"], succ_dict["host"], succ_dict["port"])
+        # Pre-populate proxy cache for newly discovered nodes
+        if succ.node_id not in self._proxy_cache:
+            uri = _NODE_URI_REGISTRY.get(succ.node_id)
+            if uri:
+                with self._proxy_lock:
+                    self._proxy_cache[succ.node_id] = pyro.Proxy(uri)
         with self._lock:
             self.fingers[i] = succ
             if i == 0:
@@ -377,7 +391,7 @@ class ChordNode:
 
         known_id = known["node_id"]
 
-        # --- find successor of ourselves ---
+        # --- find successor ---
         with proxy_for(known_id) as pk:
             succ_dict = pk.find_successor(self.info.node_id)
 
@@ -387,7 +401,7 @@ class ChordNode:
             self.successor = succ
             self.predecessor = None
 
-            # FIX: initialize ALL fingers, not just finger[0]
+            # initialize ALL fingers
             for i in range(len(self.fingers)):
                 self.fingers[i] = succ
 

@@ -6,7 +6,7 @@ import time
 
 import Pyro5.api as pyro
 
-from Chord import ChordNode, NodeInfo, node_id_for
+from Chord import ChordNode, NodeInfo, node_id_for, register_node_uri
 from dfs import DFSClient
 from paxos import PaxosAcceptor, paxosProxyFor
 from replication import ReplicatedChordStorage
@@ -24,9 +24,11 @@ def start_peer(host, port, ns, bootstrap=False, join_node_id=None):
 
     # Register all services under the same Chord node id
     daemon = pyro.Daemon(host=host, port=port)
-    ns.register(f"chord.node.{nid}", daemon.register(chord_node))
+    chord_uri = daemon.register(chord_node)
+    ns.register(f"chord.node.{nid}", chord_uri)
     ns.register(f"chord.storage.{nid}", daemon.register(storage_node))
     ns.register(f"chord.paxos.{nid}", daemon.register(paxos_node))
+    register_node_uri(nid, chord_uri)  # cache direct URI — eliminates name server lookup per call
     threading.Thread(target=daemon.requestLoop, daemon=True).start()
     time.sleep(0.3)
     if bootstrap:

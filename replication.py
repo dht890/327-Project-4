@@ -70,9 +70,11 @@ class PaxosLeader:
             learned = []
             for node_id in self.acceptorIds:
                 try:
+                    print(f"ACCEPT leader={self.leaderId} node={node_id} ballot={ballot} key={metaKey!r} op={operation.get('type')!r}")
                     resp = px(node_id).accept(metaKey, ballot, operation)
                     if resp["ok"]:
                         learned.append(node_id)
+                        print(f"LEARN  leader={self.leaderId} node={node_id} ballot={ballot} key={metaKey!r} op={operation.get('type')!r}")
                 except Exception as exc:
                     print(f"WARN leader {self.leaderId}: accept failed on node {node_id}: {exc}")
 
@@ -82,6 +84,7 @@ class PaxosLeader:
                 continue
 
             print(f"OK   leader {self.leaderId}: phase 2 accepts={len(learned)}/{len(self.acceptorIds)}")
+            print(f"COMMIT leader={self.leaderId} ballot={ballot} key={metaKey!r} majority={len(learned)}/{len(self.acceptorIds)} op={operation.get('type')!r}")
 
             for node_id in self.acceptorIds:
                 try:
@@ -89,7 +92,7 @@ class PaxosLeader:
                 except Exception as exc:
                     print(f"WARN leader {self.leaderId}: commit failed on node {node_id}: {exc}")
 
-            print(f"OK   leader {self.leaderId}: consensus key={metaKey!r} round={ballot}")
+            print(f"OK   leader {self.leaderId}: commit decision=COMMITTED key={metaKey!r} round={ballot}")
             return True
 
         print(f"FAIL leader {self.leaderId}: no consensus after {self.maxRetries} attempts")
@@ -187,7 +190,7 @@ class ReplicatedChordStorage(ChordStorage):
             return self.paxosDelete(key)
         return super().delete(key) # Non-metadata keys go straight to base ChordStorage
 
-    def get(self, key): # This function will try primary first, then fall back so reads survive a crash
+    def get(self, key): # try primary first, then fall back so reads survive a crash
         if key.startswith("metadata:"):
             replicas = self.getReplicas(key)
             for nodeId in replicas:
@@ -200,7 +203,7 @@ class ReplicatedChordStorage(ChordStorage):
             return None
         return super().get(key)
 
-    def append(self, metaKey, pageKey, content): # This function will store page then update metadata across all replicas using Paxos
+    def append(self, metaKey, pageKey, content): # store page then update metadata across all replicas using Paxos
         raw = self.get(metaKey)
         if raw is None:
             raise FileNotFoundError(f"Metadata not found: {metaKey}")
