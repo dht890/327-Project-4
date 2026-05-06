@@ -54,7 +54,7 @@ class PaxosAcceptor:
             print(f"FAIL node {self.nodeId}: accept key={key!r} round={ballot} min={state['ballot']}")
             return {"ok": False}
 
-    def commit(self, key, ballot, operation): # This function will apply the operation to committed store after majority LEARN
+    def learn(self, key, ballot, operation): # This function will apply the operation to committed store after majority LEARN
         self.alive()
         with self.lock:
             operationType = operation.get("type")
@@ -67,7 +67,7 @@ class PaxosAcceptor:
             state = self.keyState(key)
             state["acc_ballot"] = -1
             state["acc_operation"] = None
-            print(f"OK   node {self.nodeId}: commit key={key!r} round={ballot} op={operationType!r}")
+            print(f"OK   node {self.nodeId}: learn  key={key!r} round={ballot} op={operationType!r}")
             return {"ok": True}
 
     def getCommitted(self, key):

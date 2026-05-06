@@ -67,32 +67,36 @@ class PaxosLeader:
                 print(f"INFO leader {self.leaderId}: adopting prior ballot {highestPrior['ballot']}")
                 operation = highestPrior["operation"]
 
-            learned = []
+            # Phase 2 — send ACCEPT to all acceptors
+            accepted = []
             for node_id in self.acceptorIds:
                 try:
                     print(f"ACCEPT leader={self.leaderId} node={node_id} ballot={ballot} key={metaKey!r} op={operation.get('type')!r}")
                     resp = px(node_id).accept(metaKey, ballot, operation)
                     if resp["ok"]:
-                        learned.append(node_id)
-                        print(f"LEARN  leader={self.leaderId} node={node_id} ballot={ballot} key={metaKey!r} op={operation.get('type')!r}")
+                        accepted.append(node_id)
                 except Exception as exc:
                     print(f"WARN leader {self.leaderId}: accept failed on node {node_id}: {exc}")
 
-            if len(learned) < majority:
-                print(f"FAIL leader {self.leaderId}: phase 2 accepts={len(learned)}/{len(self.acceptorIds)}")
+            if len(accepted) < majority:
+                print(f"FAIL leader {self.leaderId}: phase 2 accepts={len(accepted)}/{len(self.acceptorIds)}")
                 time.sleep(0.15 * attempt)
                 continue
 
-            print(f"OK   leader {self.leaderId}: phase 2 accepts={len(learned)}/{len(self.acceptorIds)}")
-            print(f"COMMIT leader={self.leaderId} ballot={ballot} key={metaKey!r} majority={len(learned)}/{len(self.acceptorIds)} op={operation.get('type')!r}")
+            print(f"OK   leader {self.leaderId}: phase 2 accepts={len(accepted)}/{len(self.acceptorIds)}")
 
+            # Majority reached — broadcast LEARN so acceptors apply the committed value
+            learned = []
             for node_id in self.acceptorIds:
                 try:
-                    px(node_id).commit(metaKey, ballot, operation)
+                    resp = px(node_id).learn(metaKey, ballot, operation)
+                    if resp and resp.get("ok"):
+                        learned.append(node_id)
+                        print(f"LEARN  leader={self.leaderId} node={node_id} ballot={ballot} key={metaKey!r} op={operation.get('type')!r}")
                 except Exception as exc:
-                    print(f"WARN leader {self.leaderId}: commit failed on node {node_id}: {exc}")
+                    print(f"WARN leader {self.leaderId}: learn failed on node {node_id}: {exc}")
 
-            print(f"OK   leader {self.leaderId}: commit decision=COMMITTED key={metaKey!r} round={ballot}")
+            print(f"OK   leader {self.leaderId}: consensus key={metaKey!r} round={ballot} learned={len(learned)}/{len(self.acceptorIds)}")
             return True
 
         print(f"FAIL leader {self.leaderId}: no consensus after {self.maxRetries} attempts")
